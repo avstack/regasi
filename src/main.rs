@@ -6,25 +6,32 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use futures::stream::StreamExt;
-use gstreamer::{Bin, ElementFactory, GhostPad, prelude::{ElementExt, GObjectExtManualGst, GstBinExt}};
-use lib_gst_meet::{Authentication, ColibriMessage, Connection, init_tracing, JitsiConference, JitsiConferenceConfig, MediaType};
+use gstreamer::{
+  prelude::{ElementExt, GObjectExtManualGst, GstBinExt},
+  Bin, ElementFactory, GhostPad,
+};
+use lib_gst_meet::{
+  init_tracing, Authentication, ColibriMessage, Connection, JitsiConference, JitsiConferenceConfig,
+  MediaType,
+};
 use structopt::StructOpt;
-use tokio::{signal::ctrl_c, sync::{mpsc, Mutex}, task};
+use tokio::{
+  signal::ctrl_c,
+  sync::{mpsc, Mutex},
+  task,
+};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, info, trace};
 
 use crate::{
   model::{Participant, TranscriptionEvent, TranscriptionResult},
-  transcriber::{
-    aws::AwsTranscriber,
-    Transcriber,
-  },
+  transcriber::{aws::AwsTranscriber, Transcriber},
 };
 
 #[derive(Debug, Clone, StructOpt)]
 #[structopt(
   name = "regasi",
-  about = "Perform speech-to-text on Jitsi Meet conferences for transcription and captioning.",
+  about = "Perform speech-to-text on Jitsi Meet conferences for transcription and captioning."
 )]
 struct Opt {
   #[structopt(long)]
@@ -76,18 +83,20 @@ async fn main() -> Result<()> {
   init_gstreamer()?;
 
   let client_connection = {
-    let (connection, background) = 
-      Connection::new(
-        &opt.web_socket_url,
-        &opt.xmpp_domain,
-        match (opt.username.as_ref(), opt.password.as_ref()) {
-          (Some(username), Some(password)) => Authentication::Plain { username: username.clone(), password: password.clone() },
-          (None, None) => Authentication::Anonymous,
-          _ => panic!("if username or password are provided, both must be provided"),
+    let (connection, background) = Connection::new(
+      &opt.web_socket_url,
+      &opt.xmpp_domain,
+      match (opt.username.as_ref(), opt.password.as_ref()) {
+        (Some(username), Some(password)) => Authentication::Plain {
+          username: username.clone(),
+          password: password.clone(),
         },
-      )
-      .await
-      .context("failed to connect")?;
+        (None, None) => Authentication::Anonymous,
+        _ => panic!("if username or password are provided, both must be provided"),
+      },
+    )
+    .await
+    .context("failed to connect")?;
     tokio::spawn(background);
     connection.connect().await?;
     connection
@@ -95,7 +104,7 @@ async fn main() -> Result<()> {
 
   // TODO: implement brewery MUC support
   // let service_connection = {
-  //   let (connection, background) = 
+  //   let (connection, background) =
   //     Connection::new(
   //       &opt.web_socket_url,
   //       &opt.xmpp_domain,
@@ -173,22 +182,30 @@ async fn main() -> Result<()> {
           };
 
           let transcriber: Box<dyn Transcriber + Send + Sync> = match transcriber.as_str() {
-            "aws" => Box::new(AwsTranscriber::new(transcriber_region.as_deref(), &transcription_participant, live_tx)),
+            "aws" => Box::new(AwsTranscriber::new(
+              transcriber_region.as_deref(),
+              &transcription_participant,
+              live_tx,
+            )),
             other => bail!("invalid transcriber name: {}", other),
           };
-        
+
           if save {
-            save_tx.send(TranscriptionEvent::Join {
-              timestamp: Utc::now(),
-              participant: transcription_participant.clone(),
-            }).await?;
+            save_tx
+              .send(TranscriptionEvent::Join {
+                timestamp: Utc::now(),
+                participant: transcription_participant.clone(),
+              })
+              .await?;
           }
 
           let bin = Bin::new(Some(&format!("participant_{}", participant_id)));
 
           let queue = ElementFactory::make("queue", None)?;
           bin.add(&queue)?;
-          let sink_pad = queue.static_pad("sink").context("queue element missing sink pad")?;
+          let sink_pad = queue
+            .static_pad("sink")
+            .context("queue element missing sink pad")?;
           bin.add_pad(&GhostPad::with_target(Some("audio"), &sink_pad)?)?;
 
           let transcriber_element = transcriber.make_element()?;
@@ -197,7 +214,10 @@ async fn main() -> Result<()> {
 
           conference.add_bin(&bin).await?;
 
-          transcribers.lock().await.insert(participant_id.clone(), transcriber);
+          transcribers
+            .lock()
+            .await
+            .insert(participant_id.clone(), transcriber);
 
           Ok(())
         })
@@ -226,13 +246,15 @@ async fn main() -> Result<()> {
           transcribers.lock().await.remove(&participant_id);
 
           if save {
-            save_tx.send(TranscriptionEvent::Leave {
-              timestamp: Utc::now(),
-              participant: Participant {
-                id: participant_id,
-                ..Default::default()
-              },
-            }).await?;
+            save_tx
+              .send(TranscriptionEvent::Leave {
+                timestamp: Utc::now(),
+                participant: Participant {
+                  id: participant_id,
+                  ..Default::default()
+                },
+              })
+              .await?;
           }
 
           Ok(())
@@ -250,10 +272,12 @@ async fn main() -> Result<()> {
       let mut transcription: Option<TranscriptionResult> = None;
       while let Some(event) = stream.next().await {
         if live {
-          conference.send_json_message(&TranscriptionResult {
-            r#type: "transcription-result".to_owned(),
-            event: event.clone(),
-          }).await?;
+          conference
+            .send_json_message(&TranscriptionResult {
+              r#type: "transcription-result".to_owned(),
+              event: event.clone(),
+            })
+            .await?;
         }
         if save && !event.is_interim() {
           save_tx.send(event).await?;
@@ -266,9 +290,7 @@ async fn main() -> Result<()> {
   if let Some(path) = opt.save {
     tokio::spawn(async move {
       let mut stream = ReceiverStream::new(save_rx);
-      while let Some(event) = stream.next().await {
-
-      }
+      while let Some(event) = stream.next().await {}
     });
   }
 
