@@ -1,0 +1,29 @@
+[package]
+name = "regasi"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+anyhow = { version = "1", default-features = false, features = ["std"] }
+aws-config = { git = "https://github.com/awslabs/aws-sdk-rust", package = "aws-config" }
+aws-sigv4 = { git = "https://github.com/awslabs/aws-sdk-rust", package = "aws-sigv4", features = ["sign-eventstream"] }
+aws-types = { git = "https://github.com/awslabs/aws-sdk-rust", package = "aws-types" }
+bytes = { version = "1", default-features = false }
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
+futures = { version = "0.3", default-features = false }
+glib = { version = "0.14", default-features = false, features = ["log"] }
+gstreamer = { version = "0.17", default-features = false, features = ["v1_16"] }
+gstreamer-app = { version = "0.17", default-features = false, features = ["v1_16"] }
+hyper = { version = "0.14", default-features = false, features = ["http2", "client", "tcp", "runtime", "stream"] }
+hyper-rustls = { version = "0.22", default-features = false, features = ["native-tokio", "tokio-runtime"] }
+lib-gst-meet = { version = "0.3", path = "../gst-meet/lib-gst-meet", default-features = false, features = ["tracing-subscriber"] }
+serde = { version = "1", default-features = false, features = ["derive"] }
+serde_json = { version = "1", default-features = false }
+smithy-eventstream = { git = "https://github.com/awslabs/aws-sdk-rust", package = "smithy-eventstream" }
+sse-codec = { version = "0.3", default-features = false }
+structopt = { version = "0.3", default-features = false }
+tokio = { version = "1", default-features = false, features = ["io-util", "macros", "rt-multi-thread", "signal", "sync"] }
+tokio-stream = { version = "0.1", default-features = false }
+tokio-util = { version = "0.6", default-features = false, features = ["compat", "io"] }
+tracing = { version = "0.1", default-features = false, features = ["attributes", "std"] }
+uuid = { version = "0.8", default-features = false, features = ["v4", "serde"] }
